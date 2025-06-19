@@ -1,7 +1,7 @@
 # Giacom Tech Test
 
 ## Background
-Giacom aka ‘Cloud Market’ is a B2B e-commerce platform which allows IT companies (resellers) to buy cloud services indirectly from major vendors (Microsoft, Symantec, Webroot etc) in high volumes at low cost. IT companies then resell the purchased services on to their customers, making a small margin. Behind Cloud Market are several microservices, one of which is an Order API much like the one we are going to work on for this test.
+Giacom Cloud Market is a B2B e-commerce platform which allows IT companies (resellers) to buy services indirectly from major vendors (Microsoft, Symantec, Webroot etc) in high volumes at low cost. IT companies then resell the purchased services on to their customers, making a small margin. Behind Cloud Market are several microservices, one of which is an Order API much like the one we are going to work on for this test.
 
 ## Concepts
 * Reseller = A customer of Giacom
@@ -14,11 +14,11 @@ Giacom aka ‘Cloud Market’ is a B2B e-commerce platform which allows IT compa
 * Profit = The difference between Cost and Price
 
 ## Time
-You should allocate approx. 2 hours to complete the tech test.
+You should allocate approx. 2 hours to complete the tech test though it will likely take less time for more experienced engineers.
 
 ## Pre-Reqs
 * Visual Studio 2022 (or compatible IDE for working with .net)
-* .NET 6.0 SDK
+* .NET 8.0 SDK
 * Git
 * Docker (running Linux containers)
 * Optional: MySQL Workbench / Heidi (database client)
@@ -41,6 +41,7 @@ Finally, once code-complete, close your IDE, run 'docker-compose down --volumes'
 
 ## Submission
 Please push your code to a new github repository then send the repository link to the email address from which the tech test was issued. If applicable, add notes in the email explaining why you have chosen a particular approach.
+Alternatively, zip or git-bundle the repository and email it.
 
 ## Help
 If you happen to run into any issues when running the Docker container, try deselecting Hyper-V Services in "Windows Features" (Search for Windows Features in Start Menu), selecting again, and then restarting your computer.
@@ -52,4 +53,4 @@ To connect to the MySQL database directly the credentials are as follows:
 
 If you experience further issues getting set up with the tech test please reply to the email address from which the tech test was issued with your query.
 
-Copyright (c) 2022, Giacom World Networks Ltd.
+Copyright (c) 2025, Giacom.
