@@ -1,10 +1,9 @@
-version: '3'
 services:
   api:
       build: ./src
       container_name: order-api
       ports:
-          - "8000:80"
+          - 8000:8080
       depends_on:
         - db
       links:
