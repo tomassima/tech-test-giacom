@@ -16,11 +16,12 @@ namespace Order.Data
             _orderContext = orderContext;
         }
 
-        public async Task<IEnumerable<OrderSummary>> GetOrdersAsync()
+        public async Task<IEnumerable<OrderSummary>> GetOrdersAsync(string status = null)
         {
             var orders = await _orderContext.Order
                 .Include(x => x.Items)
                 .Include(x => x.Status)
+                .Where(x => status == null || x.Status.Name == status)
                 .Select(x => new OrderSummary
                 {
                     Id = new Guid(x.Id),
@@ -70,7 +71,7 @@ namespace Order.Data
                         Quantity = i.Quantity.Value
                     })
                 }).SingleOrDefaultAsync();
-            
+
             return order;
         }
     }

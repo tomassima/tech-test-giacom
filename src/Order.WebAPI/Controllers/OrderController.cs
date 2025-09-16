@@ -17,14 +17,23 @@ namespace OrderService.WebAPI.Controllers
             _orderService = orderService;
         }
 
+        /// <summary>
+        /// Get all orders, optionally filtered by status
+        /// </summary>
+        /// <returns></returns>
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> Get()
+        public async Task<IActionResult> Get([FromQuery] string status = null)
         {
-            var orders = await _orderService.GetOrdersAsync();
+            var orders = await _orderService.GetOrdersAsync(status);
             return Ok(orders);
         }
 
+        /// <summary>
+        /// Get order by ID
+        /// </summary>
+        /// <param name="orderId"></param>
+        /// <returns></returns>
         [HttpGet("{orderId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]

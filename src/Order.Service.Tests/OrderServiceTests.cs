@@ -154,6 +154,102 @@ namespace Order.Service.Tests
             Assert.AreEqual(1.8m, order.TotalPrice);
         }
 
+        [Test]
+        public async Task GetOrdersAsync_FiltersByStatus_ReturnsCorrectOrders()
+        {
+            // Arrange
+            var completedStatusId = Guid.NewGuid().ToByteArray();
+            var failedStatusId = Guid.NewGuid().ToByteArray();
+
+            // Add additional order statuses
+            _orderContext.OrderStatus.Add(new OrderStatus
+            {
+                Id = completedStatusId,
+                Name = "Completed",
+            });
+            _orderContext.OrderStatus.Add(new OrderStatus
+            {
+                Id = failedStatusId,
+                Name = "Failed",
+            });
+            await _orderContext.SaveChangesAsync();
+
+            // Add orders with different statuses
+            var orderId1 = Guid.NewGuid();
+            await AddOrderWithStatus(orderId1, 1, _orderStatusCreatedId); // Created
+
+            var orderId2 = Guid.NewGuid();
+            await AddOrderWithStatus(orderId2, 2, completedStatusId); // Completed
+
+            var orderId3 = Guid.NewGuid();
+            await AddOrderWithStatus(orderId3, 3, failedStatusId); // Failed
+
+            var orderId4 = Guid.NewGuid();
+            await AddOrderWithStatus(orderId4, 1, completedStatusId); // Another Completed
+
+            // Act - Filter by "Completed" status
+            var completedOrders = await _orderService.GetOrdersAsync("Completed");
+            var failedOrders = await _orderService.GetOrdersAsync("Failed");
+            var createdOrders = await _orderService.GetOrdersAsync("Created");
+
+            // Assert
+            Assert.AreEqual(2, completedOrders.Count(), "Should return 2 completed orders");
+            Assert.AreEqual(1, failedOrders.Count(), "Should return 1 failed order");
+            Assert.AreEqual(1, createdOrders.Count(), "Should return 1 created order");
+
+            // Verify the correct orders are returned
+            Assert.IsTrue(completedOrders.Any(x => x.Id == orderId2), "Should contain orderId2");
+            Assert.IsTrue(completedOrders.Any(x => x.Id == orderId4), "Should contain orderId4");
+            Assert.IsTrue(failedOrders.Any(x => x.Id == orderId3), "Should contain orderId3");
+            Assert.IsTrue(createdOrders.Any(x => x.Id == orderId1), "Should contain orderId1");
+
+            // Verify status names are correct
+            Assert.IsTrue(completedOrders.All(x => x.StatusName == "Completed"), "All returned orders should have Completed status");
+            Assert.IsTrue(failedOrders.All(x => x.StatusName == "Failed"), "All returned orders should have Failed status");
+            Assert.IsTrue(createdOrders.All(x => x.StatusName == "Created"), "All returned orders should have Created status");
+        }
+
+        [Test]
+        public async Task GetOrdersAsync_WithNullStatus_ReturnsAllOrders()
+        {
+            // Arrange
+            var completedStatusId = Guid.NewGuid().ToByteArray();
+            _orderContext.OrderStatus.Add(new OrderStatus
+            {
+                Id = completedStatusId,
+                Name = "Completed",
+            });
+            await _orderContext.SaveChangesAsync();
+
+            var orderId1 = Guid.NewGuid();
+            await AddOrderWithStatus(orderId1, 1, _orderStatusCreatedId); // Created
+
+            var orderId2 = Guid.NewGuid();
+            await AddOrderWithStatus(orderId2, 2, completedStatusId); // Completed
+
+            // Act - No status filter (null)
+            var allOrders = await _orderService.GetOrdersAsync(null);
+
+            // Assert
+            Assert.AreEqual(2, allOrders.Count(), "Should return all orders when status is null");
+            Assert.IsTrue(allOrders.Any(x => x.Id == orderId1), "Should contain created order");
+            Assert.IsTrue(allOrders.Any(x => x.Id == orderId2), "Should contain completed order");
+        }
+
+        [Test]
+        public async Task GetOrdersAsync_WithNonExistentStatus_ReturnsNoOrders()
+        {
+            // Arrange
+            var orderId1 = Guid.NewGuid();
+            await AddOrder(orderId1, 1);
+
+            // Act - Filter by non-existent status
+            var orders = await _orderService.GetOrdersAsync("NonExistentStatus");
+
+            // Assert
+            Assert.AreEqual(0, orders.Count(), "Should return no orders for non-existent status");
+        }
+
         private async Task AddOrder(Guid orderId, int quantity)
         {
             var orderIdBytes = orderId.ToByteArray();
@@ -164,6 +260,30 @@ namespace Order.Service.Tests
                 CustomerId = Guid.NewGuid().ToByteArray(),
                 CreatedDate = DateTime.Now,
                 StatusId = _orderStatusCreatedId,
+            });
+
+            _orderContext.OrderItem.Add(new OrderItem
+            {
+                Id = Guid.NewGuid().ToByteArray(),
+                OrderId = orderIdBytes,
+                ServiceId = _orderServiceEmailId,
+                ProductId = _orderProductEmailId,
+                Quantity = quantity
+            });
+
+            await _orderContext.SaveChangesAsync();
+        }
+
+        private async Task AddOrderWithStatus(Guid orderId, int quantity, byte[] statusId)
+        {
+            var orderIdBytes = orderId.ToByteArray();
+            _orderContext.Order.Add(new Data.Entities.Order
+            {
+                Id = orderIdBytes,
+                ResellerId = Guid.NewGuid().ToByteArray(),
+                CustomerId = Guid.NewGuid().ToByteArray(),
+                CreatedDate = DateTime.Now,
+                StatusId = statusId,
             });
 
             _orderContext.OrderItem.Add(new OrderItem
