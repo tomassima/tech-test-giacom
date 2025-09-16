@@ -85,7 +85,7 @@ namespace Order.Data
 
             if (!statusExists)
             {
-                throw new CreateOrderException($"Status with id {request.StatusId} does not exist", nameof(request.StatusId));
+                throw new CreateOrUpdateOrderException($"Status with id {request.StatusId} does not exist", nameof(request.StatusId));
             }
 
             // Collect product and service ids from request
@@ -98,7 +98,7 @@ namespace Order.Data
 
             if (missingProducts.Count != 0)
             {
-                throw new CreateOrderException($"Product(s) not found: {string.Join(',', missingProducts)}", nameof(request.Items));
+                throw new CreateOrUpdateOrderException($"Product(s) not found: {string.Join(',', missingProducts)}", nameof(request.Items));
             }
 
             var missingServices = serviceIds
@@ -107,7 +107,7 @@ namespace Order.Data
 
             if (missingServices.Count != 0)
             {
-                throw new CreateOrderException($"Service(s) not found: {string.Join(',', missingServices)}", nameof(request.Items));
+                throw new CreateOrUpdateOrderException($"Service(s) not found: {string.Join(',', missingServices)}", nameof(request.Items));
             }
 
             var orderId = Guid.NewGuid();
@@ -138,6 +138,17 @@ namespace Order.Data
         {
             var orderIdBytes = orderId.ToByteArray();
             var statusIdBytes = statusId.ToByteArray();
+
+
+            // Validate that referenced foreign key entities exist before attempting to save
+                var statusExists = _orderContext.OrderStatus
+                .Any(s => _orderContext.IsInMemoryDatabase() ? s.Id.SequenceEqual(statusIdBytes) : s.Id == statusIdBytes);
+
+            if (!statusExists)
+            {
+                throw new CreateOrUpdateOrderException($"Status with id {statusId} does not exist", nameof(statusId));
+            }
+
 
             var order = _orderContext.Order
                 .Where(x => _orderContext.Database.IsInMemory() ? x.Id.SequenceEqual(orderIdBytes) : x.Id == orderIdBytes)

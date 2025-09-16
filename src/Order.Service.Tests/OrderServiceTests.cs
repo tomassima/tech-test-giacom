@@ -408,7 +408,7 @@ namespace Order.Service.Tests
                 await _orderService.CreateOrderAsync(createRequest);
                 Assert.Fail("Expected CreateOrderException when status is missing");
             }
-            catch (CreateOrderException ex)
+            catch (CreateOrUpdateOrderException ex)
             {
                 Assert.IsNotNull(ex, "Expected CreateOrderException when status is missing");
             }
@@ -440,7 +440,7 @@ namespace Order.Service.Tests
                 await _orderService.CreateOrderAsync(createRequest);
                 Assert.Fail("Expected CreateOrderException when product is missing");
             }
-            catch (CreateOrderException ex)
+            catch (CreateOrUpdateOrderException ex)
             {
                 Assert.IsNotNull(ex, "Expected CreateOrderException when product is missing");
             }
@@ -484,7 +484,7 @@ namespace Order.Service.Tests
                 await _orderService.CreateOrderAsync(createRequest);
                 Assert.Fail("Expected CreateOrderException when service is missing");
             }
-            catch (CreateOrderException ex)
+            catch (CreateOrUpdateOrderException ex)
             {
                 Assert.IsNotNull(ex, "Expected CreateOrderException when service is missing");
             }
@@ -602,6 +602,27 @@ namespace Order.Service.Tests
 
             var order3 = await _orderService.GetOrderByIdAsync(orderId);
             Assert.AreEqual("Failed", order3.StatusName, "Status should be 'Failed'");
+        }
+
+        [Test]
+        public async Task UpdateOrderStatusAsync_WithNonExistentStatus_ThrowsCreateOrUpdateOrderException()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            await AddOrder(orderId, 1);
+
+            var nonExistentStatus = Guid.NewGuid();
+
+            // Act & Assert
+            try
+            {
+                await _orderService.UpdateOrderStatusAsync(orderId, nonExistentStatus);
+                Assert.Fail("Expected CreateOrUpdateOrderException when status does not exist");
+            }
+            catch (CreateOrUpdateOrderException ex)
+            {
+                Assert.IsNotNull(ex);
+            }
         }
 
         [Test]

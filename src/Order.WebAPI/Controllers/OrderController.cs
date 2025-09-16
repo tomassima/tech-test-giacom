@@ -66,7 +66,7 @@ namespace OrderService.WebAPI.Controllers
                 var createdOrder = await _orderService.CreateOrderAsync(request);
                 return CreatedAtAction(nameof(GetOrderById), new { orderId = createdOrder.Id }, createdOrder);
             }
-            catch (CreateOrderException ex)
+            catch (CreateOrUpdateOrderException ex)
             {
                 return BadRequest(new { error = ex.Message, parameter = ex.ParamName });
             }
@@ -83,14 +83,21 @@ namespace OrderService.WebAPI.Controllers
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateOrderStatus(Guid orderId, [FromRoute] Guid statusId)
         {
-            var updatedOrder = await _orderService.UpdateOrderStatusAsync(orderId, statusId);
-            if (updatedOrder)
+            try
             {
-                return Ok(updatedOrder);
+                var updatedOrder = await _orderService.UpdateOrderStatusAsync(orderId, statusId);
+                if (updatedOrder)
+                {
+                    return Ok(updatedOrder);
+                }
+                else
+                {
+                    return NotFound();
+                }
             }
-            else
+            catch (CreateOrUpdateOrderException ex)
             {
-                return NotFound();
+                return BadRequest(new { error = ex.Message, parameter = ex.ParamName });
             }
         }
     }
