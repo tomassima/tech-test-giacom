@@ -33,8 +33,8 @@ namespace OrderService.WebAPI.Controllers
         /// <summary>
         /// Get order by ID
         /// </summary>
-        /// <param name="orderId"></param>
-        /// <returns></returns>
+        /// <param name="orderId">The ID of the order</param>
+        /// <returns>Details of the order</returns>
         [HttpGet("{orderId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -54,8 +54,8 @@ namespace OrderService.WebAPI.Controllers
         /// <summary>
         /// Create a new order
         /// </summary>
-        /// <param name="request"></param>
-        /// <returns></returns>
+        /// <param name="request">The order creation request</param>
+        /// <returns>The created order</returns>
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         public async Task<IActionResult> CreateOrder([FromBody] OrderCreateRequest request)
@@ -67,8 +67,8 @@ namespace OrderService.WebAPI.Controllers
         /// <summary>
         /// Update order status
         /// </summary>
-        /// <param name="orderId"></param>
-        /// <param name="statusId"></param>
+        /// <param name="orderId">The ID of the order</param>
+        /// <param name="statusId">The ID of the new status</param>
         /// <returns></returns>
         [HttpPatch("{orderId}/status/{statusId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]

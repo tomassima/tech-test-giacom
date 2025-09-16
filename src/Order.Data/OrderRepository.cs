@@ -120,5 +120,20 @@ namespace Order.Data
 
             return Task.FromResult(true);
         }
+
+        public async Task<decimal> GetMonthlyProfitAsync(int year, int month, string status = "Completed")
+        {
+            var profit = await _orderContext.Order
+                .Include(x => x.Items)
+                .ThenInclude(x => x.Product)
+                .Include(x => x.Status)
+                .Where(x => x.Status.Name == status 
+                    && x.CreatedDate.Year == year 
+                    && x.CreatedDate.Month == month)
+                .SelectMany(x => x.Items)
+                .SumAsync(i => (i.Product.UnitPrice - i.Product.UnitCost) * i.Quantity.Value);
+
+            return profit;
+        }
     }
 }

@@ -496,6 +496,180 @@ namespace Order.Service.Tests
             Assert.AreEqual("Failed", order3.StatusName, "Status should be 'Failed'");
         }
 
+        [Test]
+        public async Task GetMonthlyProfitAsync_WithCompletedOrdersInMonth_ReturnsCorrectProfit()
+        {
+            // Arrange
+            var completedStatusId = Guid.NewGuid().ToByteArray();
+            _orderContext.OrderStatus.Add(new OrderStatus
+            {
+                Id = completedStatusId,
+                Name = "Completed",
+            });
+            await _orderContext.SaveChangesAsync();
+
+            // Create orders in the target month (January 2025)
+            var january2025Order1 = Guid.NewGuid();
+            await AddOrderWithStatusAndDate(january2025Order1, 2, completedStatusId, new DateTime(2025, 1, 15)); // Profit: (0.9 - 0.8) * 2 = 0.2
+
+            var january2025Order2 = Guid.NewGuid();
+            await AddOrderWithStatusAndDate(january2025Order2, 3, completedStatusId, new DateTime(2025, 1, 20)); // Profit: (0.9 - 0.8) * 3 = 0.3
+
+            // Create order in different month (should not be included)
+            var february2025Order = Guid.NewGuid();
+            await AddOrderWithStatusAndDate(february2025Order, 5, completedStatusId, new DateTime(2025, 2, 10));
+
+            // Act
+            var profit = await _orderService.GetMonthlyProfitAsync(2025, 1);
+
+            // Assert
+            Assert.AreEqual(0.5m, profit, "Should return profit for January 2025 orders only (0.2 + 0.3 = 0.5)");
+        }
+
+        [Test]
+        public async Task GetMonthlyProfitAsync_WithNoCompletedOrdersInMonth_ReturnsZero()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            await AddOrderWithStatusAndDate(orderId, 1, _orderStatusCreatedId, new DateTime(2025, 1, 15)); // Created status, not Completed
+
+            // Act
+            var profit = await _orderService.GetMonthlyProfitAsync(2025, 1);
+
+            // Assert
+            Assert.AreEqual(0m, profit, "Should return 0 profit when no completed orders in the month");
+        }
+
+        [Test]
+        public async Task GetMonthlyProfitAsync_WithOrdersInDifferentMonths_OnlyIncludesTargetMonth()
+        {
+            // Arrange
+            var completedStatusId = Guid.NewGuid().ToByteArray();
+            _orderContext.OrderStatus.Add(new OrderStatus
+            {
+                Id = completedStatusId,
+                Name = "Completed",
+            });
+            await _orderContext.SaveChangesAsync();
+
+            // January 2025 order
+            var januaryOrder = Guid.NewGuid();
+            await AddOrderWithStatusAndDate(januaryOrder, 1, completedStatusId, new DateTime(2025, 1, 15)); // Profit: 0.1
+
+            // February 2025 order
+            var februaryOrder = Guid.NewGuid();
+            await AddOrderWithStatusAndDate(februaryOrder, 2, completedStatusId, new DateTime(2025, 2, 15)); // Profit: 0.2
+
+            // January 2024 order (different year)
+            var january2024Order = Guid.NewGuid();
+            await AddOrderWithStatusAndDate(january2024Order, 10, completedStatusId, new DateTime(2024, 1, 15)); // Profit: 1.0
+
+            // Act
+            var januaryProfit = await _orderService.GetMonthlyProfitAsync(2025, 1);
+            var februaryProfit = await _orderService.GetMonthlyProfitAsync(2025, 2);
+            var january2024Profit = await _orderService.GetMonthlyProfitAsync(2024, 1);
+
+            // Assert
+            Assert.AreEqual(0.1m, januaryProfit, "Should return profit only for January 2025");
+            Assert.AreEqual(0.2m, februaryProfit, "Should return profit only for February 2025");
+            Assert.AreEqual(1.0m, january2024Profit, "Should return profit only for January 2024");
+        }
+
+        [Test]
+        public async Task GetMonthlyProfitAsync_WithMultipleItemsPerOrder_CalculatesCorrectTotal()
+        {
+            // Arrange
+            var completedStatusId = Guid.NewGuid().ToByteArray();
+            _orderContext.OrderStatus.Add(new OrderStatus
+            {
+                Id = completedStatusId,
+                Name = "Completed",
+            });
+
+            // Add another product for testing multiple items
+            var secondProductId = Guid.NewGuid().ToByteArray();
+            _orderContext.OrderProduct.Add(new OrderProduct
+            {
+                Id = secondProductId,
+                Name = "50GB Mailbox",
+                UnitCost = 0.5m,
+                UnitPrice = 0.7m, // Profit per unit: 0.2
+                ServiceId = _orderServiceEmailId
+            });
+            await _orderContext.SaveChangesAsync();
+
+            // Create order with multiple items
+            var orderId = Guid.NewGuid();
+            var orderIdBytes = orderId.ToByteArray();
+            var orderDate = new DateTime(2025, 1, 15);
+
+            _orderContext.Order.Add(new Data.Entities.Order
+            {
+                Id = orderIdBytes,
+                ResellerId = Guid.NewGuid().ToByteArray(),
+                CustomerId = Guid.NewGuid().ToByteArray(),
+                CreatedDate = orderDate,
+                StatusId = completedStatusId,
+            });
+
+            // Add two different items to the same order
+            _orderContext.OrderItem.Add(new Data.Entities.OrderItem
+            {
+                Id = Guid.NewGuid().ToByteArray(),
+                OrderId = orderIdBytes,
+                ServiceId = _orderServiceEmailId,
+                ProductId = _orderProductEmailId, // Profit: (0.9 - 0.8) * 2 = 0.2
+                Quantity = 2
+            });
+
+            _orderContext.OrderItem.Add(new Data.Entities.OrderItem
+            {
+                Id = Guid.NewGuid().ToByteArray(),
+                OrderId = orderIdBytes,
+                ServiceId = _orderServiceEmailId,
+                ProductId = secondProductId, // Profit: (0.7 - 0.5) * 3 = 0.6
+                Quantity = 3
+            });
+
+            await _orderContext.SaveChangesAsync();
+
+            // Act
+            var profit = await _orderService.GetMonthlyProfitAsync(2025, 1);
+
+            // Assert
+            Assert.AreEqual(0.8m, profit, "Should return total profit for all items (0.2 + 0.6 = 0.8)");
+        }
+
+        [Test]
+        public async Task GetMonthlyProfitAsync_WithCustomStatus_FiltersCorrectly()
+        {
+            // Arrange
+            var completedStatusId = Guid.NewGuid().ToByteArray();
+            var processingStatusId = Guid.NewGuid().ToByteArray();
+
+            _orderContext.OrderStatus.AddRange(new[]
+            {
+                new OrderStatus { Id = completedStatusId, Name = "Completed" },
+                new OrderStatus { Id = processingStatusId, Name = "Processing" }
+            });
+            await _orderContext.SaveChangesAsync();
+
+            // Create orders with different statuses
+            var completedOrder = Guid.NewGuid();
+            await AddOrderWithStatusAndDate(completedOrder, 1, completedStatusId, new DateTime(2025, 1, 15)); // Profit: 0.1
+
+            var processingOrder = Guid.NewGuid();
+            await AddOrderWithStatusAndDate(processingOrder, 2, processingStatusId, new DateTime(2025, 1, 20)); // Profit: 0.2
+
+            // Act
+            var completedProfit = await _orderService.GetMonthlyProfitAsync(2025, 1, "Completed");
+            var processingProfit = await _orderService.GetMonthlyProfitAsync(2025, 1, "Processing");
+
+            // Assert
+            Assert.AreEqual(0.1m, completedProfit, "Should return profit only for Completed orders");
+            Assert.AreEqual(0.2m, processingProfit, "Should return profit only for Processing orders");
+        }
+
         private async Task AddOrder(Guid orderId, int quantity)
         {
             var orderIdBytes = orderId.ToByteArray();
@@ -529,6 +703,30 @@ namespace Order.Service.Tests
                 ResellerId = Guid.NewGuid().ToByteArray(),
                 CustomerId = Guid.NewGuid().ToByteArray(),
                 CreatedDate = DateTime.Now,
+                StatusId = statusId,
+            });
+
+            _orderContext.OrderItem.Add(new Data.Entities.OrderItem
+            {
+                Id = Guid.NewGuid().ToByteArray(),
+                OrderId = orderIdBytes,
+                ServiceId = _orderServiceEmailId,
+                ProductId = _orderProductEmailId,
+                Quantity = quantity
+            });
+
+            await _orderContext.SaveChangesAsync();
+        }
+
+        private async Task AddOrderWithStatusAndDate(Guid orderId, int quantity, byte[] statusId, DateTime createdDate)
+        {
+            var orderIdBytes = orderId.ToByteArray();
+            _orderContext.Order.Add(new Data.Entities.Order
+            {
+                Id = orderIdBytes,
+                ResellerId = Guid.NewGuid().ToByteArray(),
+                CustomerId = Guid.NewGuid().ToByteArray(),
+                CreatedDate = createdDate,
                 StatusId = statusId,
             });
 

@@ -38,5 +38,10 @@ namespace Order.Service
             var result = _orderRepository.UpdateOrderStatusAsync(orderId, statusId);
             return result;
         }
+
+        public Task<decimal> GetMonthlyProfitAsync(int year, int month, string status = "Completed")
+        {
+            return _orderRepository.GetMonthlyProfitAsync(year, month, status);
+        }
     }
 }

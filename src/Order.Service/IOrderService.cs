@@ -14,5 +14,7 @@ namespace Order.Service
         Task<OrderDetail> CreateOrderAsync(OrderCreateRequest request);
 
         Task<bool> UpdateOrderStatusAsync(Guid orderId, Guid statusId);
+
+        Task<decimal> GetMonthlyProfitAsync(int year, int month, string status = "Completed");
     }
 }
