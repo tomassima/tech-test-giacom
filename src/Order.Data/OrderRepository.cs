@@ -167,13 +167,19 @@ namespace Order.Data
 
         public async Task<decimal> GetMonthlyProfitAsync(int year, int month, string status = "Completed")
         {
+            // Use explicit date range filtering instead of DateTime.Year/Month in LINQ
+            // to avoid provider-specific SQL function translations that some MySQL
+            // providers emit as custom expressions not handled by EF Core internals.
+            var start = new DateTime(year, month, 1);
+            var end = start.AddMonths(1);
+
             var profit = await _orderContext.Order
                 .Include(x => x.Items)
                 .ThenInclude(x => x.Product)
                 .Include(x => x.Status)
                 .Where(x => x.Status.Name == status
-                    && x.CreatedDate.Year == year
-                    && x.CreatedDate.Month == month)
+                    && x.CreatedDate >= start
+                    && x.CreatedDate < end)
                 .SelectMany(x => x.Items)
                 .SumAsync(i => (i.Product.UnitPrice - i.Product.UnitCost) * i.Quantity.Value);
 
