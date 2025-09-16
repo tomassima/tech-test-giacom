@@ -383,6 +383,114 @@ namespace Order.Service.Tests
         }
 
         [Test]
+        public async Task CreateOrderAsync_WithMissingStatus_ThrowsCreateOrderException()
+        {
+            // Arrange - use a status id that does not exist
+            var createRequest = new OrderCreateRequest
+            {
+                ResellerId = Guid.NewGuid(),
+                CustomerId = Guid.NewGuid(),
+                StatusId = Guid.NewGuid(), // missing
+                Items = new List<OrderItemToCreate>
+                {
+                    new OrderItemToCreate
+                    {
+                        ServiceId = new Guid(_orderServiceEmailId),
+                        ProductId = new Guid(_orderProductEmailId),
+                        Quantity = 1
+                    }
+                }
+            };
+
+            // Act & Assert
+            try
+            {
+                await _orderService.CreateOrderAsync(createRequest);
+                Assert.Fail("Expected CreateOrderException when status is missing");
+            }
+            catch (CreateOrderException ex)
+            {
+                Assert.IsNotNull(ex, "Expected CreateOrderException when status is missing");
+            }
+        }
+
+        [Test]
+        public async Task CreateOrderAsync_WithMissingProduct_ThrowsCreateOrderException()
+        {
+            // Arrange - use a product id that does not exist
+            var createRequest = new OrderCreateRequest
+            {
+                ResellerId = Guid.NewGuid(),
+                CustomerId = Guid.NewGuid(),
+                StatusId = new Guid(_orderStatusCreatedId),
+                Items = new List<OrderItemToCreate>
+                {
+                    new OrderItemToCreate
+                    {
+                        ServiceId = new Guid(_orderServiceEmailId),
+                        ProductId = Guid.NewGuid(), // missing
+                        Quantity = 1
+                    }
+                }
+            };
+
+            // Act & Assert
+            try
+            {
+                await _orderService.CreateOrderAsync(createRequest);
+                Assert.Fail("Expected CreateOrderException when product is missing");
+            }
+            catch (CreateOrderException ex)
+            {
+                Assert.IsNotNull(ex, "Expected CreateOrderException when product is missing");
+            }
+        }
+
+        [Test]
+        public async Task CreateOrderAsync_WithMissingService_ThrowsCreateOrderException()
+        {
+            // Arrange - use a service id that does not exist
+            // Add a product that references a non-existent service so product exists but service is missing
+            var orphanProductId = Guid.NewGuid().ToByteArray();
+            _orderContext.OrderProduct.Add(new OrderProduct
+            {
+                Id = orphanProductId,
+                Name = "Orphan Product",
+                UnitCost = 1.0m,
+                UnitPrice = 1.5m,
+                ServiceId = Guid.NewGuid().ToByteArray() // this service does not exist
+            });
+            await _orderContext.SaveChangesAsync();
+
+            var createRequest = new OrderCreateRequest
+            {
+                ResellerId = Guid.NewGuid(),
+                CustomerId = Guid.NewGuid(),
+                StatusId = new Guid(_orderStatusCreatedId),
+                Items = new List<OrderItemToCreate>
+                {
+                    new OrderItemToCreate
+                    {
+                        ServiceId = Guid.NewGuid(), // missing
+                        ProductId = new Guid(orphanProductId),
+                        Quantity = 1
+                    }
+                }
+            };
+
+            // Act & Assert
+            try
+            {
+                await _orderService.CreateOrderAsync(createRequest);
+                Assert.Fail("Expected CreateOrderException when service is missing");
+            }
+            catch (CreateOrderException ex)
+            {
+                Assert.IsNotNull(ex, "Expected CreateOrderException when service is missing");
+            }
+        }
+
+        [Test]
         public async Task UpdateOrderStatusAsync_WithValidOrder_UpdatesStatusSuccessfully()
         {
             // Arrange

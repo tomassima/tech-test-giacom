@@ -58,10 +58,18 @@ namespace OrderService.WebAPI.Controllers
         /// <returns>The created order</returns>
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateOrder([FromBody] OrderCreateRequest request)
         {
-            var createdOrder = await _orderService.CreateOrderAsync(request);
-            return CreatedAtAction(nameof(GetOrderById), new { orderId = createdOrder.Id }, createdOrder);
+            try
+            {
+                var createdOrder = await _orderService.CreateOrderAsync(request);
+                return CreatedAtAction(nameof(GetOrderById), new { orderId = createdOrder.Id }, createdOrder);
+            }
+            catch (CreateOrderException ex)
+            {
+                return BadRequest(new { error = ex.Message, parameter = ex.ParamName });
+            }
         }
 
         /// <summary>

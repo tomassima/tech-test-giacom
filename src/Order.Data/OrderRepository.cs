@@ -77,13 +77,46 @@ namespace Order.Data
 
         public Task<OrderDetail> CreateOrderAsync(OrderCreateRequest request)
         {
+            // Validate that referenced foreign key entities exist before attempting to save
+            var statusIdBytes = request.StatusId.ToByteArray();
+
+            var statusExists = _orderContext.OrderStatus
+                .Any(s => _orderContext.IsInMemoryDatabase() ? s.Id.SequenceEqual(statusIdBytes) : s.Id == statusIdBytes);
+
+            if (!statusExists)
+            {
+                throw new CreateOrderException($"Status with id {request.StatusId} does not exist", nameof(request.StatusId));
+            }
+
+            // Collect product and service ids from request
+            var productIds = request.Items.Select(i => i.ProductId).Distinct().ToList();
+            var serviceIds = request.Items.Select(i => i.ServiceId).Distinct().ToList();
+
+            var missingProducts = productIds
+                .Where(pid => _orderContext.OrderProduct.All(p => _orderContext.IsInMemoryDatabase() ? !p.Id.SequenceEqual(pid.ToByteArray()) : p.Id != pid.ToByteArray()))
+                .ToList();
+
+            if (missingProducts.Count != 0)
+            {
+                throw new CreateOrderException($"Product(s) not found: {string.Join(',', missingProducts)}", nameof(request.Items));
+            }
+
+            var missingServices = serviceIds
+                .Where(sid => _orderContext.OrderService.All(s => _orderContext.IsInMemoryDatabase() ? !s.Id.SequenceEqual(sid.ToByteArray()) : s.Id != sid.ToByteArray()))
+                .ToList();
+
+            if (missingServices.Count != 0)
+            {
+                throw new CreateOrderException($"Service(s) not found: {string.Join(',', missingServices)}", nameof(request.Items));
+            }
+
             var orderId = Guid.NewGuid();
             var order = new Entities.Order
             {
                 Id = orderId.ToByteArray(),
                 ResellerId = request.ResellerId.ToByteArray(),
                 CustomerId = request.CustomerId.ToByteArray(),
-                StatusId = request.StatusId.ToByteArray(),
+                StatusId = statusIdBytes,
                 CreatedDate = DateTime.UtcNow,
                 Items = [.. request.Items.Select(i => new Entities.OrderItem
                 {
@@ -127,8 +160,8 @@ namespace Order.Data
                 .Include(x => x.Items)
                 .ThenInclude(x => x.Product)
                 .Include(x => x.Status)
-                .Where(x => x.Status.Name == status 
-                    && x.CreatedDate.Year == year 
+                .Where(x => x.Status.Name == status
+                    && x.CreatedDate.Year == year
                     && x.CreatedDate.Month == month)
                 .SelectMany(x => x.Items)
                 .SumAsync(i => (i.Product.UnitPrice - i.Product.UnitCost) * i.Quantity.Value);
