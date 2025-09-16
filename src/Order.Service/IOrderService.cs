@@ -10,6 +10,9 @@ namespace Order.Service
         Task<IEnumerable<OrderSummary>> GetOrdersAsync(string status = null);
 
         Task<OrderDetail> GetOrderByIdAsync(Guid orderId);
+
         Task<OrderDetail> CreateOrderAsync(OrderCreateRequest request);
+
+        Task<bool> UpdateOrderStatusAsync(Guid orderId, Guid statusId);
     }
 }

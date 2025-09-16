@@ -51,12 +51,39 @@ namespace OrderService.WebAPI.Controllers
             }
         }
 
+        /// <summary>
+        /// Create a new order
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
         [HttpPost]
         [ProducesResponseType(StatusCodes.Status201Created)]
         public async Task<IActionResult> CreateOrder([FromBody] OrderCreateRequest request)
         {
             var createdOrder = await _orderService.CreateOrderAsync(request);
             return CreatedAtAction(nameof(GetOrderById), new { orderId = createdOrder.Id }, createdOrder);
+        }
+
+        /// <summary>
+        /// Update order status
+        /// </summary>
+        /// <param name="orderId"></param>
+        /// <param name="statusId"></param>
+        /// <returns></returns>
+        [HttpPatch("{orderId}/status")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateOrderStatus(Guid orderId, [FromQuery] Guid statusId)
+        {
+            var updatedOrder = await _orderService.UpdateOrderStatusAsync(orderId, statusId);
+            if (updatedOrder)
+            {
+                return Ok(updatedOrder);
+            }
+            else
+            {
+                return NotFound();
+            }
         }
     }
 }

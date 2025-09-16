@@ -382,6 +382,120 @@ namespace Order.Service.Tests
             Assert.AreEqual(2, secondItem.Quantity, "Second item quantity should be 2");
         }
 
+        [Test]
+        public async Task UpdateOrderStatusAsync_WithValidOrder_UpdatesStatusSuccessfully()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            await AddOrder(orderId, 1);
+
+            var completedStatusId = Guid.NewGuid().ToByteArray();
+            _orderContext.OrderStatus.Add(new OrderStatus
+            {
+                Id = completedStatusId,
+                Name = "Completed",
+            });
+            await _orderContext.SaveChangesAsync();
+
+            // Act
+            var result = await _orderService.UpdateOrderStatusAsync(orderId, new Guid(completedStatusId));
+
+            // Assert
+            Assert.IsTrue(result, "Update should return true for successful update");
+
+            // Verify the status was actually updated
+            var updatedOrder = await _orderService.GetOrderByIdAsync(orderId);
+            Assert.AreEqual(new Guid(completedStatusId), updatedOrder.StatusId, "Status ID should be updated");
+            Assert.AreEqual("Completed", updatedOrder.StatusName, "Status name should be updated to 'Completed'");
+        }
+
+        [Test]
+        public async Task UpdateOrderStatusAsync_WithNonExistentOrder_ReturnsFalse()
+        {
+            // Arrange
+            var nonExistentOrderId = Guid.NewGuid();
+            var statusId = new Guid(_orderStatusCreatedId);
+
+            // Act
+            var result = await _orderService.UpdateOrderStatusAsync(nonExistentOrderId, statusId);
+
+            // Assert
+            Assert.IsFalse(result, "Update should return false for non-existent order");
+        }
+
+        [Test]
+        public async Task UpdateOrderStatusAsync_WithValidOrderAndStatus_PersistsChanges()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            await AddOrder(orderId, 2);
+
+            var failedStatusId = Guid.NewGuid().ToByteArray();
+            _orderContext.OrderStatus.Add(new OrderStatus
+            {
+                Id = failedStatusId,
+                Name = "Failed",
+            });
+            await _orderContext.SaveChangesAsync();
+
+            // Get original status to verify it changes
+            var originalOrder = await _orderService.GetOrderByIdAsync(orderId);
+            Assert.AreEqual("Created", originalOrder.StatusName, "Original status should be 'Created'");
+
+            // Act
+            var result = await _orderService.UpdateOrderStatusAsync(orderId, new Guid(failedStatusId));
+
+            // Assert
+            Assert.IsTrue(result, "Update should return true");
+
+            // Create a new service instance to verify persistence
+            var newRepository = new OrderRepository(_orderContext);
+            var newService = new OrderService(newRepository);
+            var persistedOrder = await newService.GetOrderByIdAsync(orderId);
+
+            Assert.AreEqual(new Guid(failedStatusId), persistedOrder.StatusId, "Persisted status ID should match");
+            Assert.AreEqual("Failed", persistedOrder.StatusName, "Persisted status name should be 'Failed'");
+        }
+
+        [Test]
+        public async Task UpdateOrderStatusAsync_MultipleStatusChanges_WorksCorrectly()
+        {
+            // Arrange
+            var orderId = Guid.NewGuid();
+            await AddOrder(orderId, 1);
+
+            var inProgressStatusId = Guid.NewGuid().ToByteArray();
+            var completedStatusId = Guid.NewGuid().ToByteArray();
+            var failedStatusId = Guid.NewGuid().ToByteArray();
+
+            _orderContext.OrderStatus.AddRange(new[]
+            {
+                new OrderStatus { Id = inProgressStatusId, Name = "InProgress" },
+                new OrderStatus { Id = completedStatusId, Name = "Completed" },
+                new OrderStatus { Id = failedStatusId, Name = "Failed" }
+            });
+            await _orderContext.SaveChangesAsync();
+
+            // Act & Assert - Multiple status changes
+            var result1 = await _orderService.UpdateOrderStatusAsync(orderId, new Guid(inProgressStatusId));
+            Assert.IsTrue(result1, "First update should succeed");
+
+            var order1 = await _orderService.GetOrderByIdAsync(orderId);
+            Assert.AreEqual("InProgress", order1.StatusName, "Status should be 'InProgress'");
+
+            var result2 = await _orderService.UpdateOrderStatusAsync(orderId, new Guid(completedStatusId));
+            Assert.IsTrue(result2, "Second update should succeed");
+
+            var order2 = await _orderService.GetOrderByIdAsync(orderId);
+            Assert.AreEqual("Completed", order2.StatusName, "Status should be 'Completed'");
+
+            var result3 = await _orderService.UpdateOrderStatusAsync(orderId, new Guid(failedStatusId));
+            Assert.IsTrue(result3, "Third update should succeed");
+
+            var order3 = await _orderService.GetOrderByIdAsync(orderId);
+            Assert.AreEqual("Failed", order3.StatusName, "Status should be 'Failed'");
+        }
+
         private async Task AddOrder(Guid orderId, int quantity)
         {
             var orderIdBytes = orderId.ToByteArray();

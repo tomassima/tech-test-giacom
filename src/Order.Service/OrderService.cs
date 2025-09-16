@@ -32,5 +32,11 @@ namespace Order.Service
             var order = _orderRepository.CreateOrderAsync(request);
             return order;
         }
+
+        public Task<bool> UpdateOrderStatusAsync(Guid orderId, Guid statusId)
+        {
+            var result = _orderRepository.UpdateOrderStatusAsync(orderId, statusId);
+            return result;
+        }
     }
 }

@@ -100,5 +100,25 @@ namespace Order.Data
 
             return GetOrderByIdAsync(orderId);
         }
+
+        public Task<bool> UpdateOrderStatusAsync(Guid orderId, Guid statusId)
+        {
+            var orderIdBytes = orderId.ToByteArray();
+            var statusIdBytes = statusId.ToByteArray();
+
+            var order = _orderContext.Order
+                .Where(x => _orderContext.Database.IsInMemory() ? x.Id.SequenceEqual(orderIdBytes) : x.Id == orderIdBytes)
+                .SingleOrDefault();
+
+            if (order == null)
+            {
+                return Task.FromResult(false);
+            }
+
+            order.StatusId = statusIdBytes;
+            _orderContext.SaveChanges();
+
+            return Task.FromResult(true);
+        }
     }
 }
