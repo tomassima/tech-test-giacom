@@ -70,10 +70,10 @@ namespace OrderService.WebAPI.Controllers
         /// <param name="orderId"></param>
         /// <param name="statusId"></param>
         /// <returns></returns>
-        [HttpPatch("{orderId}/status")]
+        [HttpPatch("{orderId}/status/{statusId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateOrderStatus(Guid orderId, [FromQuery] Guid statusId)
+        public async Task<IActionResult> UpdateOrderStatus(Guid orderId, [FromRoute] Guid statusId)
         {
             var updatedOrder = await _orderService.UpdateOrderStatusAsync(orderId, statusId);
             if (updatedOrder)
