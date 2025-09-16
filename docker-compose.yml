@@ -2,6 +2,9 @@ services:
   api:
       build: ./src
       container_name: order-api
+      environment:
+        - ASPNETCORE_URLS=http://+:8080
+        - DOTNET_RUNNING_IN_CONTAINER=true
       ports:
           - 8000:8080
       depends_on:
