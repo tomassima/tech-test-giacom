@@ -26,5 +26,11 @@ namespace Order.Service
             var order = await _orderRepository.GetOrderByIdAsync(orderId);
             return order;
         }
+
+        public Task<OrderDetail> CreateOrderAsync(OrderCreateRequest request)
+        {
+            var order = _orderRepository.CreateOrderAsync(request);
+            return order;
+        }
     }
 }

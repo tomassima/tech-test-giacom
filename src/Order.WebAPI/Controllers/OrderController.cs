@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Order.Model;
 using Order.Service;
 using System;
 using System.Threading.Tasks;
@@ -48,6 +49,14 @@ namespace OrderService.WebAPI.Controllers
             {
                 return NotFound();
             }
+        }
+
+        [HttpPost]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        public async Task<IActionResult> CreateOrder([FromBody] OrderCreateRequest request)
+        {
+            var createdOrder = await _orderService.CreateOrderAsync(request);
+            return CreatedAtAction(nameof(GetOrderById), new { orderId = createdOrder.Id }, createdOrder);
         }
     }
 }

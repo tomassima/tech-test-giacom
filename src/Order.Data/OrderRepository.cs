@@ -74,5 +74,31 @@ namespace Order.Data
 
             return order;
         }
+
+        public Task<OrderDetail> CreateOrderAsync(OrderCreateRequest request)
+        {
+            var orderId = Guid.NewGuid();
+            var order = new Entities.Order
+            {
+                Id = orderId.ToByteArray(),
+                ResellerId = request.ResellerId.ToByteArray(),
+                CustomerId = request.CustomerId.ToByteArray(),
+                StatusId = request.StatusId.ToByteArray(),
+                CreatedDate = DateTime.UtcNow,
+                Items = [.. request.Items.Select(i => new Entities.OrderItem
+                {
+                    Id = Guid.NewGuid().ToByteArray(),
+                    OrderId = orderId.ToByteArray(),
+                    ProductId = i.ProductId.ToByteArray(),
+                    ServiceId = i.ServiceId.ToByteArray(),
+                    Quantity = i.Quantity
+                })]
+            };
+
+            _orderContext.Order.Add(order);
+            _orderContext.SaveChanges();
+
+            return GetOrderByIdAsync(orderId);
+        }
     }
 }

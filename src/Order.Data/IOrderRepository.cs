@@ -10,5 +10,7 @@ namespace Order.Data
         Task<IEnumerable<OrderSummary>> GetOrdersAsync(string status = null);
 
         Task<OrderDetail> GetOrderByIdAsync(Guid orderId);
+
+        Task<OrderDetail> CreateOrderAsync(OrderCreateRequest request);
     }
 }

@@ -4,7 +4,9 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using NUnit.Framework;
 using Order.Data;
 using Order.Data.Entities;
+using Order.Model;
 using System;
+using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
 using System.Threading.Tasks;
@@ -250,6 +252,136 @@ namespace Order.Service.Tests
             Assert.AreEqual(0, orders.Count(), "Should return no orders for non-existent status");
         }
 
+        [Test]
+        public async Task CreateOrderAsync_CreatesOrderSuccessfully()
+        {
+            // Arrange
+            var resellerId = Guid.NewGuid();
+            var customerId = Guid.NewGuid();
+            
+            var createRequest = new OrderCreateRequest
+            {
+                ResellerId = resellerId,
+                CustomerId = customerId,
+                StatusId = new Guid(_orderStatusCreatedId),
+                Items = new List<OrderItemToCreate>
+                {
+                    new OrderItemToCreate
+                    {
+                        ServiceId = new Guid(_orderServiceEmailId),
+                        ProductId = new Guid(_orderProductEmailId),
+                        Quantity = 2
+                    }
+                }
+            };
+
+            // Act
+            var createdOrder = await _orderService.CreateOrderAsync(createRequest);
+
+            // Assert
+            Assert.IsNotNull(createdOrder, "Created order should not be null");
+            Assert.AreNotEqual(Guid.Empty, createdOrder.Id, "Order should have a valid ID");
+            Assert.AreEqual(resellerId, createdOrder.ResellerId, "ResellerId should match");
+            Assert.AreEqual(customerId, createdOrder.CustomerId, "CustomerId should match");
+            Assert.AreEqual(new Guid(_orderStatusCreatedId), createdOrder.StatusId, "StatusId should match");
+            Assert.AreEqual("Created", createdOrder.StatusName, "Status name should be 'Created'");
+            Assert.AreEqual(1, createdOrder.Items.Count(), "Should have 1 order item");
+            
+            var orderItem = createdOrder.Items.First();
+            Assert.AreEqual(new Guid(_orderServiceEmailId), orderItem.ServiceId, "Service ID should match");
+            Assert.AreEqual(new Guid(_orderProductEmailId), orderItem.ProductId, "Product ID should match");
+            Assert.AreEqual(2, orderItem.Quantity, "Quantity should be 2");
+            Assert.AreEqual("Email", orderItem.ServiceName, "Service name should be 'Email'");
+            Assert.AreEqual("100GB Mailbox", orderItem.ProductName, "Product name should be '100GB Mailbox'");
+        }
+
+        [Test]
+        public async Task CreateOrderAsync_CalculatesTotalsCorrectly()
+        {
+            // Arrange
+            var createRequest = new OrderCreateRequest
+            {
+                ResellerId = Guid.NewGuid(),
+                CustomerId = Guid.NewGuid(),
+                StatusId = new Guid(_orderStatusCreatedId),
+                Items = new List<OrderItemToCreate>
+                {
+                    new OrderItemToCreate
+                    {
+                        ServiceId = new Guid(_orderServiceEmailId),
+                        ProductId = new Guid(_orderProductEmailId),
+                        Quantity = 3  // 3 * 0.8 = 2.4 cost, 3 * 0.9 = 2.7 price
+                    }
+                }
+            };
+
+            // Act
+            var createdOrder = await _orderService.CreateOrderAsync(createRequest);
+
+            // Assert
+            Assert.AreEqual(2.4m, createdOrder.TotalCost, "Total cost should be 2.4 (3 * 0.8)");
+            Assert.AreEqual(2.7m, createdOrder.TotalPrice, "Total price should be 2.7 (3 * 0.9)");
+            
+            var orderItem = createdOrder.Items.First();
+            Assert.AreEqual(2.4m, orderItem.TotalCost, "Item total cost should be 2.4");
+            Assert.AreEqual(2.7m, orderItem.TotalPrice, "Item total price should be 2.7");
+            Assert.AreEqual(0.8m, orderItem.UnitCost, "Unit cost should be 0.8");
+            Assert.AreEqual(0.9m, orderItem.UnitPrice, "Unit price should be 0.9");
+        }
+
+        [Test]
+        public async Task CreateOrderAsync_WithMultipleItems_CreatesAllItems()
+        {
+            // Add another product for testing multiple items
+            var secondProductId = Guid.NewGuid().ToByteArray();
+            _orderContext.OrderProduct.Add(new OrderProduct
+            {
+                Id = secondProductId,
+                Name = "50GB Mailbox",
+                UnitCost = 0.5m,
+                UnitPrice = 0.6m,
+                ServiceId = _orderServiceEmailId
+            });
+            await _orderContext.SaveChangesAsync();
+
+            // Arrange
+            var createRequest = new OrderCreateRequest
+            {
+                ResellerId = Guid.NewGuid(),
+                CustomerId = Guid.NewGuid(),
+                StatusId = new Guid(_orderStatusCreatedId),
+                Items = new List<OrderItemToCreate>
+                {
+                    new OrderItemToCreate
+                    {
+                        ServiceId = new Guid(_orderServiceEmailId),
+                        ProductId = new Guid(_orderProductEmailId),
+                        Quantity = 1  // 1 * 0.8 = 0.8 cost, 1 * 0.9 = 0.9 price
+                    },
+                    new OrderItemToCreate
+                    {
+                        ServiceId = new Guid(_orderServiceEmailId),
+                        ProductId = new Guid(secondProductId),
+                        Quantity = 2  // 2 * 0.5 = 1.0 cost, 2 * 0.6 = 1.2 price
+                    }
+                }
+            };
+
+            // Act
+            var createdOrder = await _orderService.CreateOrderAsync(createRequest);
+
+            // Assert
+            Assert.AreEqual(2, createdOrder.Items.Count(), "Should have 2 order items");
+            Assert.AreEqual(1.8m, createdOrder.TotalCost, "Total cost should be 1.8 (0.8 + 1.0)");
+            Assert.AreEqual(2.1m, createdOrder.TotalPrice, "Total price should be 2.1 (0.9 + 1.2)");
+
+            var firstItem = createdOrder.Items.First(i => i.ProductName == "100GB Mailbox");
+            var secondItem = createdOrder.Items.First(i => i.ProductName == "50GB Mailbox");
+
+            Assert.AreEqual(1, firstItem.Quantity, "First item quantity should be 1");
+            Assert.AreEqual(2, secondItem.Quantity, "Second item quantity should be 2");
+        }
+
         private async Task AddOrder(Guid orderId, int quantity)
         {
             var orderIdBytes = orderId.ToByteArray();
@@ -262,7 +394,7 @@ namespace Order.Service.Tests
                 StatusId = _orderStatusCreatedId,
             });
 
-            _orderContext.OrderItem.Add(new OrderItem
+            _orderContext.OrderItem.Add(new Data.Entities.OrderItem
             {
                 Id = Guid.NewGuid().ToByteArray(),
                 OrderId = orderIdBytes,
@@ -286,7 +418,7 @@ namespace Order.Service.Tests
                 StatusId = statusId,
             });
 
-            _orderContext.OrderItem.Add(new OrderItem
+            _orderContext.OrderItem.Add(new Data.Entities.OrderItem
             {
                 Id = Guid.NewGuid().ToByteArray(),
                 OrderId = orderIdBytes,
