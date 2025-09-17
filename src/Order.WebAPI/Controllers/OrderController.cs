@@ -81,6 +81,7 @@ namespace OrderService.WebAPI.Controllers
         [HttpPatch("{orderId}/status/{statusId}")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> UpdateOrderStatus(Guid orderId, [FromRoute] Guid statusId)
         {
             try
